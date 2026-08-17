@@ -8,8 +8,11 @@
 
 # Vector database
 db/
-LectureBank/
-eval/
+LectureBank/*
+!LectureBank/README.md
+eval/results/*
+!eval/results/
+!eval/results/.gitkeep
 
 # Python
 __pycache__/
