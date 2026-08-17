@@ -102,6 +102,39 @@ Evaluation scripts create `eval/results/` automatically when needed. The directo
 
 Generation and latency evaluations may call Groq and can take longer than retrieval evaluation. Latency evaluation also compares Ollama when it is available.
 
+## Evaluation Dashboards
+
+The generated HTML dashboards live under `eval/results/` and can be opened in a browser after the evaluation runs.
+
+### Groq dashboard
+
+```powershell
+python -m eval.run_all --gen-limit 8 --latency-limit 8
+python -m http.server 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000/eval/results/results_dashboard.html
+```
+
+### Ollama dashboard
+
+```powershell
+ollama serve
+python -m eval.run_generation_eval_ollama --limit 8
+python -m http.server 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000/eval/results/results_dashboard_ollama.html
+```
+
+These dashboards visualize generation quality, retrieval quality, and latency benchmark results in a presentation-friendly format.
+
 ## Repository Contents
 
 - `app.py`: FastAPI server and browser application API
