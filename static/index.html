@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LectureBank RAG — AI Study Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0e1a;
+      --bg2:         #0f1424;
+      --surface:     rgba(255,255,255,0.05);
+      --surface2:    rgba(255,255,255,0.08);
+      --border:      rgba(255,255,255,0.08);
+      --accent:      #6c63ff;
+      --accent2:     #a78bfa;
+      --groq:        #ff6b6b;
+      --ollama:      #4ade80;
+      --text:        #e2e8f0;
+      --text-muted:  #64748b;
+      --radius:      14px;
+      --sidebar-w:   280px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .app { display: flex; height: 100vh; }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      gap: 24px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 4px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 15px; font-weight: 700; color: var(--text); }
+    .logo-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    .sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+
+    .backend-toggle {
+      display: flex;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .backend-btn {
+      flex: 1;
+      padding: 8px 4px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s ease;
+      background: transparent;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .backend-btn.active[data-backend="groq"] {
+      background: rgba(255,107,107,0.15);
+      color: var(--groq);
+    }
+    .backend-btn.active[data-backend="ollama"] {
+      background: rgba(74,222,128,0.15);
+      color: var(--ollama);
+    }
+    .backend-btn:not(.active):hover { color: var(--text); background: var(--surface2); }
+
+    .status-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .status-name { color: var(--text-muted); }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #374151;
+      transition: background 0.3s;
+    }
+    .status-dot.online  { background: #4ade80; box-shadow: 0 0 6px #4ade8066; }
+    .status-dot.offline { background: #ef4444; }
+
+    .model-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      width: 100%;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .model-select:focus { border-color: var(--accent); }
+    .model-select option { background: #1e293b; }
+
+    .db-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .db-icon { font-size: 16px; }
+    .db-count { color: var(--accent2); font-weight: 600; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .sidebar-footer a { color: var(--accent2); text-decoration: none; }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg2);
+    }
+    .header-title { font-size: 16px; font-weight: 600; }
+    .header-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .header-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .header-badge.groq   { background: rgba(255,107,107,0.15); color: var(--groq); }
+    .header-badge.ollama { background: rgba(74,222,128,0.15);  color: var(--ollama); }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar { width: 5px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 60px 20px;
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+    }
+    .welcome-icon {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px;
+      box-shadow: 0 8px 32px rgba(108,99,255,0.3);
+    }
+    .welcome h2 { font-size: 22px; font-weight: 700; }
+    .welcome p  { font-size: 14px; color: var(--text-muted); max-width: 380px; line-height: 1.6; }
+    .welcome-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent2); background: rgba(108,99,255,0.1); }
+
+    .message { display: flex; flex-direction: column; gap: 8px; animation: slideUp 0.3s ease; }
+    .message.user { align-items: flex-end; }
+    .message.ai   { align-items: flex-start; }
+
+    .bubble {
+      max-width: 75%;
+      padding: 14px 18px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .message.user .bubble {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .message.ai .bubble {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      position: relative;
+    }
+
+    .bubble-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+
+    .sources-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px 4px;
+      width: fit-content;
+      transition: color 0.2s;
+      user-select: none;
+    }
+    .sources-toggle:hover { color: var(--accent2); }
+    .sources-toggle .arrow { transition: transform 0.2s; font-size: 10px; }
+    .sources-toggle.open .arrow { transform: rotate(90deg); }
+
+    .sources-grid {
+      display: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: 75%;
+    }
+    .sources-grid.visible { display: flex; }
+
+    .source-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 11px;
+      max-width: 220px;
+      transition: border-color 0.2s, transform 0.2s;
+      cursor: default;
+    }
+    .source-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .source-title { font-weight: 600; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+    .source-meta  { color: var(--text-muted); line-height: 1.5; }
+    .source-link  { color: var(--accent2); text-decoration: none; font-size: 10px; display: inline-block; margin-top: 4px; }
+    .source-link:hover { text-decoration: underline; }
+
+    .scope-warning {
+      max-width: 75%;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fcd34d;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .typing {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+      width: fit-content;
+      animation: slideUp 0.3s ease;
+    }
+    .typing-dots { display: flex; gap: 4px; }
+    .typing-dots span {
+      width: 7px; height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    .typing-label { font-size: 12px; color: var(--text-muted); }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, color 0.2s;
+    }
+    .message.ai .bubble:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent2); }
+
+    .input-area {
+      padding: 20px 28px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .input-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 16px;
+      transition: border-color 0.2s;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+
+    #question {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      resize: none;
+      max-height: 160px;
+      min-height: 24px;
+      line-height: 1.5;
+    }
+    #question::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.2s, transform 0.1s;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    .send-btn:hover   { opacity: 0.9; transform: scale(1.05); }
+    .send-btn:active  { transform: scale(0.97); }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .input-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+    .toast {
+      position: fixed;
+      bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #ef4444;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes bounce   {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-5px); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+
+    <div class="logo">
+      <div class="logo-icon">📚</div>
+      <div>
+        <div class="logo-text">LectureBank RAG</div>
+        <div class="logo-sub">AI Study Assistant</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">LLM Backend</div>
+      <div class="backend-toggle">
+        <button class="backend-btn active" data-backend="groq" onclick="setBackend('groq')">
+          ⚡ Groq
+        </button>
+        <button class="backend-btn" data-backend="ollama" onclick="setBackend('ollama')">
+          🦙 Ollama
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Status</div>
+      <div class="status-card">
+        <div class="status-row">
+          <span class="status-name">⚡ Groq Cloud</span>
+          <span class="status-dot" id="groq-dot"></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">🦙 Ollama Local</span>
+          <span class="status-dot" id="ollama-dot"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section" id="groq-model-section">
+      <div class="sidebar-label">Groq Model</div>
+      <select class="model-select" id="groq-model">
+        <option value="llama-3.3-70b-versatile" selected>Llama 3.3 70B (recommended)</option>
+        <option value="llama-3.1-8b-instant">Llama 3.1 8B (fast)</option>
+        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+        <option value="gemma-7b-it">Gemma 7B</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section" id="ollama-model-section" style="display:none">
+      <div class="sidebar-label">Ollama Model</div>
+      <select class="model-select" id="ollama-model">
+        <option value="llama3.1:8b">Llama 3.1 8B (recommended)</option>
+        <option value="phi3:mini">Phi-3 Mini</option>
+        <option value="llama3.2:1b">Llama 3.2 1B (fastest)</option>
+        <option value="llama3.2:3b">Llama 3.2 3B</option>
+        <option value="mistral:7b">Mistral 7B</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Vector Database</div>
+      <div class="db-info">
+        <span class="db-icon">🗄️</span>
+        <div>
+          <span class="db-count" id="db-count">—</span> lecture chunks<br>
+          <span style="font-size:11px">ChromaDB · cosine similarity</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      Embeddings: <strong>all-MiniLM-L6-v2</strong><br>
+      Top-K: <strong>5 lectures</strong> per query<br><br>
+      <a href="https://console.groq.com" target="_blank">Groq Console ↗</a> ·
+      <a href="https://ollama.com" target="_blank">Ollama ↗</a>
+    </div>
+
+  </aside>
+
+  <div class="main">
+
+    <div class="header">
+      <div>
+        <div class="header-title">LectureBank Q&amp;A</div>
+        <div class="header-sub">500 NLP lectures from top universities</div>
+      </div>
+      <div class="header-badge groq" id="header-badge">⚡ Groq</div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🎓</div>
+        <h2>Ask about university lectures</h2>
+        <p>This RAG system has indexed 500 NLP lectures from Stanford, Yale, Edinburgh, and more. Ask anything about the content.</p>
+        <div class="welcome-chips">
+          <div class="chip" onclick="sendChip(this)">What topics are covered?</div>
+          <div class="chip" onclick="sendChip(this)">Brief me about NLP in this RAG</div>
+          <div class="chip" onclick="sendChip(this)">Who are the instructors?</div>
+          <div class="chip" onclick="sendChip(this)">Lectures about parsing</div>
+          <div class="chip" onclick="sendChip(this)">Word representations</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea
+          id="question"
+          placeholder="Ask about lectures, topics, instructors…"
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">➤</button>
+      </div>
+      <div class="input-hint">Press <kbd style="background:var(--surface);padding:1px 5px;border-radius:4px;font-size:10px">Enter</kbd> to send · <kbd style="background:var(--surface);padding:1px 5px;border-radius:4px;font-size:10px">Shift+Enter</kbd> for new line</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let currentBackend = 'groq';
+  let isLoading = false;
+  let conversationId = localStorage.getItem('conversation_id') || null;
+
+  function setBackend(backend) {
+    currentBackend = backend;
+    document.querySelectorAll('.backend-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.backend === backend);
+    });
+    document.getElementById('groq-model-section').style.display  = backend === 'groq'   ? '' : 'none';
+    document.getElementById('ollama-model-section').style.display = backend === 'ollama' ? '' : 'none';
+
+    const badge = document.getElementById('header-badge');
+    badge.className = `header-badge ${backend}`;
+    badge.textContent = backend === 'groq' ? '⚡ Groq' : '🦙 Ollama';
+  }
+
+  async function checkStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const data = await r.json();
+
+      setDot('groq-dot',   data.groq);
+      setDot('ollama-dot', data.ollama);
+
+      if (data.db_chunks) {
+        document.getElementById('db-count').textContent = data.db_chunks.toLocaleString();
+      }
+
+      if (data.ollama && data.ollama_models.length > 0) {
+        const sel = document.getElementById('ollama-model');
+        const existing = [...sel.options].map(o => o.value);
+        data.ollama_models.forEach(m => {
+          if (!existing.includes(m)) {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = m;
+            sel.insertBefore(opt, sel.firstChild);
+          }
+        });
+
+        const installed = new Set(data.ollama_models);
+        if (!installed.has(sel.value)) {
+          const preferred = ['mistral:latest', 'llama3.1:8b'];
+          const stable = data.ollama_models.find(m => preferred.includes(m))
+            || data.ollama_models.find(m => !m.startsWith('gemma4:'))
+            || data.ollama_models[0];
+          sel.value = stable;
+          showToast(`Switched Ollama model to installed: ${sel.value}`);
+        }
+      }
+    } catch (e) {
+      console.warn('Status check failed:', e);
+    }
+  }
+
+  function setDot(id, online) {
+    const dot = document.getElementById(id);
+    dot.className = `status-dot ${online ? 'online' : 'offline'}`;
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  function sendChip(el) {
+    document.getElementById('question').value = el.textContent;
+    sendMessage();
+  }
+
+  async function sendMessage() {
+    if (isLoading) return;
+    const input = document.getElementById('question');
+    const question = input.value.trim();
+    if (!question) return;
+
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.remove();
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    appendUserMessage(question);
+    const typingEl = appendTyping();
+    setLoading(true);
+
+    try {
+      const model = currentBackend === 'groq'
+        ? document.getElementById('groq-model').value
+        : document.getElementById('ollama-model').value;
+
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          conversation_id: conversationId,
+          backend:      currentBackend,
+          groq_model:   document.getElementById('groq-model').value,
+          ollama_model: document.getElementById('ollama-model').value,
+        }),
+      });
+
+      typingEl.remove();
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        showToast(err.detail || 'An error occurred');
+        appendAIMessage('❌ ' + (err.detail || 'Error generating answer.'), []);
+      } else {
+        const data = await resp.json();
+        if (data.conversation_id) {
+          conversationId = data.conversation_id;
+          localStorage.setItem('conversation_id', conversationId);
+        }
+        if (data.warning) {
+          showToast(data.warning);
+        }
+        appendAIMessage(data.answer, data.sources, model, data.warning || null);
+      }
+    } catch (e) {
+      typingEl.remove();
+      showToast('Network error — is the server running?');
+      appendAIMessage('❌ Could not reach the server.', []);
+    }
+
+    setLoading(false);
+    scrollToBottom();
+  }
+
+  function appendUserMessage(text) {
+    const msg = document.createElement('div');
+    msg.className = 'message user';
+    msg.innerHTML = `
+      <div class="bubble-meta">${now()}</div>
+      <div class="bubble">${escHtml(text)}</div>
+    `;
+    document.getElementById('messages').appendChild(msg);
+    scrollToBottom();
+  }
+
+  function appendAIMessage(answer, sources, model = '', warning = null) {
+    const msg = document.createElement('div');
+    msg.className = 'message ai';
+
+    const sourcesHtml = sources.map((s, i) => `
+      <div class="source-card">
+        <div class="source-title">${escHtml(s.title)}</div>
+        <div class="source-meta">
+          👤 ${escHtml(s.instructor)}<br>
+          🏛️ ${escHtml(s.venue)} · ${escHtml(s.year)}
+        </div>
+        ${s.url ? `<a class="source-link" href="${escHtml(s.url)}" target="_blank">View slides ↗</a>` : ''}
+      </div>
+    `).join('');
+
+    const modelLabel = model ? ` · ${model}` : '';
+
+    msg.innerHTML = `
+      <div class="bubble-meta">${now()}${modelLabel}</div>
+      ${warning ? `<div class="scope-warning">⚠ ${escHtml(warning)}</div>` : ''}
+      <div class="bubble">
+        ${escHtml(answer).replace(/\n/g, '<br>')}
+        <button class="copy-btn" onclick="copyText(this, ${JSON.stringify(answer)})">Copy</button>
+      </div>
+      ${sources.length ? `
+        <div class="sources-toggle" onclick="toggleSources(this)">
+          <span class="arrow">▶</span>
+          <span>📚 ${sources.length} retrieved lectures</span>
+        </div>
+        <div class="sources-grid">${sourcesHtml}</div>
+      ` : ''}
+    `;
+    document.getElementById('messages').appendChild(msg);
+    scrollToBottom();
+  }
+
+  function appendTyping() {
+    const el = document.createElement('div');
+    el.className = 'message ai';
+    el.innerHTML = `
+      <div class="typing">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span class="typing-label">Generating answer…</span>
+      </div>
+    `;
+    document.getElementById('messages').appendChild(el);
+    scrollToBottom();
+    return el;
+  }
+
+  function toggleSources(el) {
+    el.classList.toggle('open');
+    el.nextElementSibling.classList.toggle('visible');
+  }
+
+  function copyText(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+  }
+
+  function setLoading(state) {
+    isLoading = state;
+    document.getElementById('send-btn').disabled = state;
+  }
+
+  function scrollToBottom() {
+    const m = document.getElementById('messages');
+    m.scrollTop = m.scrollHeight;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  checkStatus();
+  setInterval(checkStatus, 15000);
+  document.getElementById('question').focus();
+</script>
+</body>
+</html>

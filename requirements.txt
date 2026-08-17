@@ -1,0 +1,16 @@
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-huggingface
+sentence-transformers
+langchain-google-genai
+google-generativeai
+langchain-chroma
+chromadb
+python-dotenv
+groq
+# Web UI (app.py)
+fastapi
+uvicorn
+requests

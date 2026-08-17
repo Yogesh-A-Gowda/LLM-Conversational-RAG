@@ -1,0 +1,39 @@
+# Environment variables (contains API keys)
+.env
+.claude
+
+# Markdown documentation (keep the main README tracked)
+*.md
+!README.md
+
+# Vector database
+db/
+LectureBank/
+eval/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local build and notebook artifacts
+dist/
+build/
+*.egg-info/
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
