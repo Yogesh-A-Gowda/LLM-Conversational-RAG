@@ -32,16 +32,31 @@ _conversations = {}
 @app.on_event("startup")
 async def startup():
     global _embeddings, _db
-    print("Loading HuggingFace embedding model...")
-    _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    print(f"Connecting to ChromaDB at: {CHROMA_DB_PATH}")
-    _db = Chroma(
-        persist_directory=CHROMA_DB_PATH,
-        embedding_function=_embeddings,
-        collection_metadata={"hnsw:space": "cosine"},
-    )
-    count = _db._collection.count()
-    print(f"Ready - {count} lecture chunks indexed.")
+    import asyncio
+    import threading
+    
+    def load_models():
+        global _embeddings, _db
+        try:
+            print("[APP] Loading HuggingFace embedding model...")
+            _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+            print(f"[APP] Connecting to ChromaDB at: {CHROMA_DB_PATH}")
+            _db = Chroma(
+                persist_directory=CHROMA_DB_PATH,
+                embedding_function=_embeddings,
+                collection_metadata={"hnsw:space": "cosine"},
+            )
+            count = _db._collection.count()
+            print(f"[APP] Ready - {count} lecture chunks indexed.")
+        except Exception as e:
+            print(f"[APP] ERROR during startup: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Run in background thread to avoid blocking startup
+    thread = threading.Thread(target=load_models, daemon=True)
+    thread.start()
+    print("[APP] Server starting (DB loading in background)...")
 
 
 class ChatRequest(BaseModel):
@@ -349,10 +364,17 @@ def reset_conversation(payload: dict):
 
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 _static_dir = os.path.join(_current_dir, "static")
-app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+
+@app.get("/")
+def root():
+    """Serve the main UI."""
+    return FileResponse(os.path.join(_static_dir, "index.html"), media_type="text/html")
+
+# Mount static files at /static/* path (for CSS, JS, etc.)
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=9000, reload=True)
